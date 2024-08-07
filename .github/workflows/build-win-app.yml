@@ -25,9 +25,9 @@ jobs:
             - name: Run Pyinstaller
               run: |
                 pyinstaller donatemail.spec
-            - uses: actions/upload-artifacts@v3
+            - uses: actions/upload-artifact@v3
               with:
-                name: DONATEMAIL
+                name: Windows_DONATEMAIL
                 path: dist/DONATEMAIL.EXE
 
             - name: create release
