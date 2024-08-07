@@ -1,0 +1,43 @@
+[
+    {
+        "name": "Yahoo",
+        "host": "imap.mail.yahoo.com",
+        "port":993
+    },
+    {
+        "name": "Gmail",
+        "host": "imap.gmail.com"
+    },
+    {
+        "name": "Outlook",
+        "host": "outlook.office365.com"
+    },
+    {
+        "name": "HotMail.fr",
+        "host": "imap-mail.outlook.com"
+    },
+    {
+        "name": "iCloud",
+        "host": "imap.mail.me.com"
+    },
+    {
+        "name": "La Poste",
+        "host": "imap.laposte.net"
+    },
+    {
+        "name": "Free",
+        "host": "imap.free.fr"
+    },
+    {
+        "name": "Orange",
+        "host": "imap.orange.fr"
+    },
+    {
+        "name": "SFR",
+        "host": "imap.sfr.fr"
+    },
+    {
+        "name": "Bouygues",
+        "host": "imap.bbox.fr"
+    }
+]

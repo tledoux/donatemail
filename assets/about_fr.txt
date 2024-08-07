@@ -1,0 +1,14 @@
+Cette application est destinée à récupérer les courriels hébergés sur une plateforme de gestion des courriels.
+
+Les étapes à réaliser sont :
+    • choisir la plateforme et renseigner les informations de compte,
+    • récupérer les dossiers existants,
+    • choisir un dossier, et récupérer les courriels qu'il contient,
+    • préparer la livraison.
+
+Une fois la livraison prête sous forme de fichier ZIP, il faut envoyer ce contenu à votre correspondant, en utilisant par exemple FranceTransfert ([https://francetransfert.numerique.gouv.fr/]).
+
+
+Ce programme écrit en Python ne fonctionne que sur Windows.
+
+Toutes les icones proviennent de Wikimedia Commons ([https://commons.wikipedia.org]), en particulier de la catégorie _Gartoons Icons_
