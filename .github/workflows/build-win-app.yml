@@ -15,20 +15,17 @@ jobs:
         runs-on: ${{ matrix.os }}
         strategy:
           matrix:
-            build: [x86_64-linux, x86_64-macos, x86_64-windows]
+            build: [x86_64-linux, x86_64-windows] #, x86_64-macos
             include:
               - build: x86_64-linux
                 os: ubuntu-20.04
-                target: x86_64-linux
-                cross: false
-              - build: x86_64-macos
-                os: macos-latest
-                target: x86_64-apple
-                cross: false
+                target: x86_64-ubuntu-20
               - build: x86_64-windows
                 os: windows-2019
                 target: x86_64-windows
-                cross: false
+              #- build: x86_64-macos
+              #  os: macos-latest
+              #  target: x86_64-apple
         steps:
             - name: Checkout
               uses: actions/checkout@v4
