@@ -27,7 +27,7 @@ Pour construire l'exécutable, installer le module pyinstaller, puis faire
 pyinstaller donatemail.spec
 ```
 
-Cela génère un exécutable `Donatemail.exe` dans le répertoire `dist`
+Cela génère un exécutable `donatemail.exe` dans le répertoire `dist`
 
 
 ## TODO
