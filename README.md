@@ -11,6 +11,8 @@ L'IHM utilise les icones issues de la collection [Gartoon de wikimedia commons](
 
 Ce programme n'a été testé que sous Windows.
 
+:warning: Attention ce programme nécessite que le port 993 (IMAP SSL) soit ouvert sur votre réseau.
+
 ## RUN
 Pour lancer l'IHM, faire
 

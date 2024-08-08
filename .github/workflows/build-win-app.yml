@@ -15,7 +15,7 @@ jobs:
         runs-on: ${{ matrix.os }}
         strategy:
           matrix:
-            build: [x86_64-linux, x86_64-windows] #, x86_64-macos
+            build: [x86_64-linux, x86_64-windows, x86_64-macos]
             include:
               - build: x86_64-linux
                 os: ubuntu-20.04
@@ -23,9 +23,9 @@ jobs:
               - build: x86_64-windows
                 os: windows-2019
                 target: x86_64-windows
-              #- build: x86_64-macos
-              #  os: macos-latest
-              #  target: x86_64-apple
+              - build: x86_64-macos
+                os: macos-13
+                target: x86_64-macos-13
         steps:
             - name: Checkout
               uses: actions/checkout@v4
@@ -75,21 +75,20 @@ jobs:
             # actions/create-release not maintained anymore
             # switch to ncipollo/release-action
             - name: create release
-              id: create_release
+              id: create-release
               uses: ncipollo/release-action@v1
               env:
                 GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               with:
-                tag: ${{ github.ref }}
-                name: ${{ github.ref }}
                 generateReleaseNotes: true
                 artifacts: "dist/*"
                 # TODO until test goes on
-                draft: true
+                draft: false
                 prerelease: false
                 #artifactContentType: application/zip
-            - name : output result
+            - name: Generate summary
               run: |
-                echo "release_name=${{ github.ref }}" >> $GITHUB_OUTPUT
-                echo "release_url={step.create-release.outputs.html_url}" >> $GITHUB_OUTPUT
+                  echo "### Success in release {github.ref}" >> $GITHUB_STEP_SUMMARY
+                  echo "Release url is {steps.create-release.outputs.html_url}" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY # this is a blank line                  
 
