@@ -66,6 +66,12 @@ jobs:
         steps:
             - name: Checkout sources
               uses: actions/checkout@v4
+            - name: download all artefacts
+              uses: actions/download-artifact@v4
+              with:
+                path: dist
+                pattern: bins-*
+                merge-multiple: true
             # actions/create-release not maintained anymore
             # switch to ncipollo/release-action
             - name: create release
@@ -74,22 +80,16 @@ jobs:
               env:
                 GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               with:
-                tag_name: ${{ github.ref }}
-                release_name: ${{ github.ref }}
+                tag: ${{ github.ref }}
+                name: ${{ github.ref }}
                 generateReleaseNotes: true
                 artifacts: "dist/*"
                 # TODO until test goes on
                 draft: true
                 prerelease: false
-                artifactContentType: application/zip
+                #artifactContentType: application/zip
             - name : output result
               run: |
                 echo "release_name=${{ github.ref }}" >> $GITHUB_OUTPUT
                 echo "release_url={step.create-release.outputs.html_url}" >> $GITHUB_OUTPUT
 
-            #- name: download all artefacts
-            #  uses: actions/download-artifact@v4
-            #  with:
-            #    path: dist
-            #    pattern: bins-*
-            #    merge-multiple: true
