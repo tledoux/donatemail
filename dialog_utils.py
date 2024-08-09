@@ -23,9 +23,9 @@ def prepare_fonts(root, verbose=False):
     if 1024 < screen_width <= 1440:
         default_size = 10
     elif 1440 < screen_width <= 1920:
-        default_size = 12
+        default_size = 11
     elif 1920 < screen_width:
-        default_size = 14
+        default_size = 12
     if verbose:
         print(f"default_size={default_size}")
 

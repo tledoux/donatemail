@@ -15,7 +15,7 @@ class UserPreferences:
         if os.name == "nt":
             self.dir_app = f"{Path.home()}/AppData/Roaming/{appname}"
         else:
-            self.dir_app = f"{Path.home()}/.{appname}"
+            self.dir_app = f"{Path.home()}/.config/{appname}"
         os.makedirs(self.dir_app, exist_ok=True)
         self.pref_file = f"{self.dir_app}/{appname}.pref"
         self.user_pref = {}
@@ -29,6 +29,7 @@ class UserPreferences:
 
     def save_prefs(self):
         """Save the preferences to the .pref file"""
+        os.makedirs(self.dir_app, exist_ok=True)
         with open(self.pref_file, "w", encoding="utf-8") as out_file:
             json.dump(self.user_pref, out_file)
 
