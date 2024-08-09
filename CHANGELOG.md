@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [1.3.1] - 2024-08-09
+
+### Added
+
+- Ajout de badges sur la page README
+
+### Changed
+
+- Correction des liens de comparaison de version
+
+### Removed
+
 ## [1.3.0] - 2024-08-09
 
 ### Added
@@ -81,7 +93,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-[Unreleased]: https://github.com/tledoux/donatemail/compare/v1.3.0..HEAD
+[Unreleased]: https://github.com/tledoux/donatemail/compare/v1.3.1..HEAD
+[1.3.1]: https://github.com/tledoux/donatemail/compare/v1.3.0..v1.3.1
 [1.3.0]: https://github.com/tledoux/donatemail/compare/v1.2.9..v1.3.0
 [1.2.9]: https://github.com/tledoux/donatemail/compare/v1.2.0..v1.3.9
 [1.2.0]: https://github.com/tledoux/donatemail/releases/tag/v1.2.0

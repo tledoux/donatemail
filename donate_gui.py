@@ -33,7 +33,7 @@ from imap_download import ImapDownload
 from mbox_delivery import MboxDelivery
 from user_pref import UserPreferences
 
-__version__ = "1.3.0"
+__version__ = "1.3.1"
 __appname__ = "donatemail"
 
 logger = logging.getLogger(__appname__)
