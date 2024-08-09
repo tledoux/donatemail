@@ -11,7 +11,13 @@ L'IHM utilise les icones issues de la collection [Gartoon de wikimedia commons](
 
 Ce programme n'a été testé que sous Windows.
 
-:warning: Attention ce programme nécessite que le port 993 (IMAP SSL) soit ouvert sur votre réseau.
+## LIMITATIONS
+
+:warning: Ce programe ne fonctionne que dans ces conditions :
+  * le port 993 doit être ouvert sur votre réseau pour permettre l'usage du protocole IMAP SSL,
+  * il faut généralement créer et utiliser un mot de passe **applicatif** à votre messagerie pour permettre son accès depuis une application tierce comme celle-ci.
+
+
 
 ## RUN
 Pour lancer l'IHM, faire

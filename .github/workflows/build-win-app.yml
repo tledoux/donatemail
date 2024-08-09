@@ -15,17 +15,23 @@ jobs:
         runs-on: ${{ matrix.os }}
         strategy:
           matrix:
-            build: [x86_64-linux, x86_64-windows, x86_64-macos]
+            # See: https://github.com/actions/runner-images?tab=readme-ov-file#available-images
+            build: [x86_64-linux, x86_64-windows, x86_64-macos] #, arm64-macos
             include:
               - build: x86_64-linux
                 os: ubuntu-20.04
                 target: x86_64-ubuntu-20
+              # architecture: 'x64'
               - build: x86_64-windows
                 os: windows-2019
                 target: x86_64-windows
               - build: x86_64-macos
                 os: macos-13
                 target: x86_64-macos-13
+              #- build:  arm64-macos
+              #  os: macos-latest
+              #  target: arm_64-darwin
+              #  architecture: 'arm64'
         steps:
             - name: Checkout
               uses: actions/checkout@v4
@@ -66,6 +72,8 @@ jobs:
         steps:
             - name: Checkout sources
               uses: actions/checkout@v4
+            - name: Generate RELEASE.md
+              uses: CSchoel/release-notes-from-changelog@v1
             - name: download all artefacts
               uses: actions/download-artifact@v4
               with:
@@ -80,15 +88,15 @@ jobs:
               env:
                 GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               with:
-                generateReleaseNotes: true
+                #generateReleaseNotes: true
+                bodyFile: RELEASE.md
                 artifacts: "dist/*"
-                # TODO until test goes on
+                #artifactContentType: application/zip
                 draft: false
                 prerelease: false
-                #artifactContentType: application/zip
             - name: Generate summary
               run: |
-                  echo "### Success in release {github.ref}" >> $GITHUB_STEP_SUMMARY
-                  echo "Release url is {steps.create-release.outputs.html_url}" >> $GITHUB_STEP_SUMMARY
+                  echo "### Success in release ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
+                  echo "Release url is ${{ steps.create-release.outputs.html_url }}" >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY # this is a blank line                  
 
