@@ -1,5 +1,10 @@
 # donatemail : un outil de récupération de courriels depuis des plateformes WebMail
 
+[![Python check](https://github.com/tledoux/donatemail/actions/workflows/python-app.yml/badge.svg)](https://github.com/tledoux/donatemail/actions/workflows/python-app.yml "Check workflow")
+[![Release](https://github.com/tledoux/donatemail/actions/workflows/build-win-app.yml/badge.svg)](https://github.com/tledoux/donatemail/actions/workflows/build-win-app.yml "Release")
+[![GitHub issues](https://img.shields.io/github/issues/tledoux/donatemail.svg)](https://github.com/tledoux/donatemail/issues "Open issues on GitHub")
+
+
 Cet outil présente une IHM capable de se connecter à un WebMail via IMAP pour créer une livraison de courriels.
 Une fois le paramétrage réalisé, il peut:
   * lister les dossiers dans la boite aux lettres,

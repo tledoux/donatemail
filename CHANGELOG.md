@@ -81,7 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-[Unreleased]: https://github.com/CSchoel/release-notes-from-changelog/compare/v1.3.0..HEAD
-[1.3.0]: https://github.com/CSchoel/release-notes-from-changelog/compare/v1.2.9..v1.3.0
-[1.2.9]: https://github.com/CSchoel/release-notes-from-changelog/compare/v1.2.0..v1.3.9
-[1.2.0]: https://github.com/CSchoel/release-notes-from-changelog/releases/tag/v1.2.0
+[Unreleased]: https://github.com/tledoux/donatemail/compare/v1.3.0..HEAD
+[1.3.0]: https://github.com/tledoux/donatemail/compare/v1.2.9..v1.3.0
+[1.2.9]: https://github.com/tledoux/donatemail/compare/v1.2.0..v1.3.9
+[1.2.0]: https://github.com/tledoux/donatemail/releases/tag/v1.2.0
