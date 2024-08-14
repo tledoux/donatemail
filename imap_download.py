@@ -342,7 +342,7 @@ class ImapDownload:
         self.last_error = None
         self.ret_code = True
         try:
-            self._mboxfile = mboxfile
+            self.mboxfile = mboxfile
             self.login()
             self._mailconn.select(f'"{folder.name_in_mutf7}"', readonly=True)
             # Get ALL message numbers
@@ -360,10 +360,10 @@ class ImapDownload:
                 progress_cb("start", count_msgs, max_msgs, f"folder: {folder.name}")
 
             try:
-                os.remove(mboxfile)
+                os.remove(self.mboxfile)
             except OSError:
                 pass
-            dest_mbox = mailbox.mbox(mboxfile, create=True)
+            dest_mbox = mailbox.mbox(self.mboxfile, create=True)
             dest_mbox.lock()  # lock the mbox file
             try:
                 for num in numbers:
@@ -412,6 +412,16 @@ class ImapDownload:
                     0,
                     self.last_error,
                 )
+        except socket.gaierror as err:
+            self.last_error = f"Erreur de connexion : {err}."
+            self.ret_code = False
+            if progress_cb is not None:
+                progress_cb(
+                    "error",
+                    0,
+                    0,
+                    self.last_error,
+                )
         except imaplib.IMAP4.error as err:
             if self.verbose:
                 print(f"ErrorType : {type(err).__name__}, Error : {err}")
@@ -431,6 +441,19 @@ class ImapDownload:
                     0,
                     self.last_error,
                 )
+
+
+def calculate_mbox_dest(outdir: str, folder: ImapFolder = ImapFolder("INBOX")):
+    """Calculate the path of the mbox file and create the needed directories"""
+    # Use modified UTF-7 to avoid interoperability issues in filenames
+    name_mbox = f"{folder.name_in_mutf7}.mbox"
+    path_mbox = os.path.join(outdir, name_mbox)
+    dir_mbox = os.path.dirname(path_mbox)
+    try:
+        os.makedirs(dir_mbox, exist_ok=True)
+    except OSError:
+        pass
+    return path_mbox
 
 
 def remove_eml_files(directory: str):
@@ -495,9 +518,11 @@ def main():
     servers = ImapServers()
     servers.read_from_json(resource_path("./assets/servers.json"))
     server = servers.get_server(args.server)
-    user, password = args.user.split(":")
-    account = ImapAccount(user, password)
-    # account = DEFAULT_ACCOUNT
+    if args.user is None:
+        account = DEFAULT_ACCOUNT
+    else:
+        user, password = args.user.split(":")
+        account = ImapAccount(user, password)
     download = ImapDownload(server, args.verbose)
     download.account = account
     if args.list:

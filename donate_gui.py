@@ -29,11 +29,11 @@ from dialog_utils import (
 )
 import imap_server
 from imap_account import ImapAccount
-from imap_download import ImapDownload
+from imap_download import ImapDownload, calculate_mbox_dest
 from mbox_delivery import MboxDelivery
 from user_pref import UserPreferences
 
-__version__ = "1.3.1"
+__version__ = "1.4.0"
 __appname__ = "donatemail"
 
 logger = logging.getLogger(__appname__)
@@ -183,10 +183,16 @@ class DonateGui(tk.Frame):
             folders_count = len(self.folders)
             self.refresh_folders_list()
             self.progress_raz()
-            msg = (
-                f"{folders_count} dossiers ont été trouvés.\n"
-                "Sélectionnez-en un puis récupérez les courriels."
-            )
+            if folders_count == 1:
+                msg = (
+                    "Un dossier a été trouvé.\n"
+                    "Sélectionnez-le puis récupérez les courriels."
+                )
+            else:
+                msg = (
+                    f"{folders_count} dossiers ont été trouvés.\n"
+                    "Sélectionnez-en un puis récupérez les courriels."
+                )
             tkMessageBox.showinfo("Succès", msg)
 
     def on_retrieve(self, _event=None):
@@ -201,15 +207,14 @@ class DonateGui(tk.Frame):
         self.working_operation.verbose = self._verbose
         self.working_operation.account = self.account
         self.root.config(cursor="watch")
-        # Use modified UTF-7 to avoid interoperability issues in filenames
-        name_mbox = f"{self.selected_folder.name_in_mutf7}.mbox"
-        temp_mbox = os.path.join(self.work_dir, name_mbox)
+
+        folder = self.selected_folder
+        temp_mbox = calculate_mbox_dest(self.work_dir, folder)
+        # Empty the mbox in case of existing one
         try:
             os.remove(temp_mbox)
         except OSError:
             pass
-        folder = self.selected_folder
-
         self.working_thread = threading.Thread(
             target=self.working_operation.get_mails_mbox,
             args=(temp_mbox, folder, self.progress_retrieve),
@@ -249,7 +254,16 @@ class DonateGui(tk.Frame):
                 self.enable_gui_after_work(
                     [self.folders_btn, self.retrieve_btn, self.delivery_btn]
                 )
-                msg = f"{mails_count} courriels ont été récupérés.\nVous pouvez créer la livraison."
+                if mails_count == 1:
+                    msg = (
+                        "Un courriel a été récupéré.\n"
+                        "Vous pouvez créer la livraison."
+                    )
+                else:
+                    msg = (
+                        f"{mails_count} courriels ont été récupérés.\n"
+                        "Vous pouvez créer la livraison."
+                    )
                 tkMessageBox.showinfo("Succès", msg)
 
     def on_delivery(self, _event=None):
@@ -258,8 +272,8 @@ class DonateGui(tk.Frame):
             msg = "Choisissez le dossier à livrer."
             tkMessageBox.showerror("Erreur", msg)
             return
-        name_mbox = f"{self.selected_folder.name_in_mutf7}.mbox"
-        temp_mbox = os.path.join(self.work_dir, name_mbox)
+        folder = self.selected_folder
+        temp_mbox = calculate_mbox_dest(self.work_dir, folder)
         if not os.path.exists(temp_mbox):
             msg = f"Le dossier {self.selected_folder.name} n'a pas encore été récupéré !!!"
             tkMessageBox.showerror("Erreur", msg)
@@ -321,9 +335,10 @@ class DonateGui(tk.Frame):
             self.working_operation = None
             self.working_thread = None
 
+            normalized_temp_zip = os.path.normpath(temp_zip)
             self.root.clipboard_clear()
-            self.root.clipboard_append(temp_zip)
-            msg = f"Livraison prête sur : [{temp_zip}]."
+            self.root.clipboard_append(normalized_temp_zip)
+            msg = f"Livraison prête sur : [{normalized_temp_zip}]."
             tkMessageBox.showinfo("Information", msg)
 
     def on_click_folders_listbox(self, _event=None):
@@ -563,7 +578,7 @@ class DonateGui(tk.Frame):
         )
         self.fill_entry(self.work_dir_entry, self.work_dir)
         row += 1
-        self.login_entry = create_entry(self, "Login :", 0, row)
+        self.login_entry = create_entry(self, "Adresse courriel :", 0, row)
         last_login = self.prefs.get("LastLogin")
         if last_login is not None and len(last_login) != 0:
             self.fill_entry(self.login_entry, last_login)
