@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Correction du parsing de la liste des dossiers
+
 ### Removed
 
 ## [1.3.1] - 2024-08-09

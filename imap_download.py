@@ -14,6 +14,8 @@ import imaplib
 import io
 import mailbox
 import os
+import re
+import socket
 from dialog_utils import resource_path
 from imap_server import ImapServers, ImapServer
 from imap_account import ImapAccount, DEFAULT_ACCOUNT
@@ -105,20 +107,31 @@ class ImapDownload:
                 print(f"ErrorType : {type(err).__name__}, Error : {err}")
         self._mailconn = None
 
-    def _parse_folder(self, data):
+    def _parse_folder(self, data: str):
         """Parse the LIST format.
 
         (\\Drafts) "/" MyDrafts
         (\\HasNoChildren) "/" "AirFrance"
+        (\\HasNoChildren \\UnMarked \\Junk) "/" Junk
         """
-        flags, _, c = data.partition(" ")
-        separator, _, name = c.partition(" ")
-        return (flags, separator.replace('"', ""), name.replace('"', ""))
+        if self.verbose:
+            print(f"Parse folder [{data}]", flush=True)
+        folder_list_re = re.compile(r"\((.+)\) (.+) (.*)")
+        match = re.search(folder_list_re, data)
+        if not match:
+            return ("", "/", "")
+        return (
+            match.group(1),  # flags
+            match.group(2).replace('"', ""),  # hierarchy delimiter
+            match.group(3).replace('"', ""),  # name
+        )
 
     def _test_flags(self, flags):
         """Test the flags for SPECIAL-USE.
         See https://datatracker.ietf.org/doc/html/rfc6154
         """
+        if self.verbose:
+            print(f"Test flags for {flags}", flush=True)
         ignore_flags = ["All", "Archive", "Drafts", "Flagged", "Junk", "Sent", "Trash"]
         for ignore in ignore_flags:
             if f"\\{ignore}" in flags:
@@ -155,8 +168,6 @@ class ImapDownload:
                 self.folders.append(folder)
                 # print(f"{folder}", flush=True)
                 f_count += 1
-                # if with_counts and f_count > 20:
-                #    break
                 if progress_cb is not None and f_count % 5 == 0:
                     progress_cb(
                         "running",
@@ -174,6 +185,16 @@ class ImapDownload:
                 )
         except ValueError as err:
             self.last_error = f"Erreur de récupération : {err}."
+            self.ret_code = False
+            if progress_cb is not None:
+                progress_cb(
+                    "error",
+                    0,
+                    0,
+                    self.last_error,
+                )
+        except socket.gaierror as err:
+            self.last_error = f"Erreur de connexion : {err}."
             self.ret_code = False
             if progress_cb is not None:
                 progress_cb(
@@ -207,7 +228,7 @@ class ImapDownload:
         self.login()
         # Select the mailbox (in read-only mode), surround with "" to allow spaces and all
         resp, data = self._mailconn.select(f'"{folder.name_in_mutf7}"', readonly=True)
-        self._mailconn.close()
+        # self._mailconn.close()
         if resp != "OK":
             if self.verbose:
                 print(f"Bad response {resp} when counting from {folder}")
@@ -276,6 +297,16 @@ class ImapDownload:
                 progress_cb("complete", count_msgs, max_msgs, f"folder: {folder.name}")
         except ValueError as err:
             self.last_error = f"Erreur de récupération : {err}."
+            self.ret_code = False
+            if progress_cb is not None:
+                progress_cb(
+                    "error",
+                    0,
+                    0,
+                    self.last_error,
+                )
+        except socket.gaierror as err:
+            self.last_error = f"Erreur de connexion : {err}."
             self.ret_code = False
             if progress_cb is not None:
                 progress_cb(
@@ -436,6 +467,13 @@ def parse():
 
     parser.add_argument("-r", "--retrieve", help="récupération des mails du dossier")
 
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="indique si le programme doit écrire des informations",
+    )
+
     return parser.parse_args()
 
 
@@ -459,8 +497,8 @@ def main():
     server = servers.get_server(args.server)
     user, password = args.user.split(":")
     account = ImapAccount(user, password)
-    account = DEFAULT_ACCOUNT
-    download = ImapDownload(server)
+    # account = DEFAULT_ACCOUNT
+    download = ImapDownload(server, args.verbose)
     download.account = account
     if args.list:
         download.list_folders(True, progress)
