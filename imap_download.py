@@ -9,6 +9,7 @@ UTF7 modified for names of folder/mailbox :
 """
 
 import argparse
+import datetime
 import glob
 import imaplib
 import io
@@ -16,6 +17,8 @@ import mailbox
 import os
 import re
 import socket
+import time
+
 from dialog_utils import resource_path
 from imap_server import ImapServers, ImapServer
 from imap_account import ImapAccount, DEFAULT_ACCOUNT
@@ -29,6 +32,8 @@ class ImapDownload:
         self._server = server
         self._account = None
         self.folders = []
+        self._timeout = 10
+        self._threshold = 2000
         self._verbose = verbose
         self._mboxfile = None
 
@@ -56,6 +61,26 @@ class ImapDownload:
     def account(self):
         """Deleter for the account"""
         del self._account
+
+    @property
+    def timeout(self) -> int:
+        """Getter for the timeout in minutes"""
+        return self._timeout
+
+    @timeout.setter
+    def timeout(self, value: int):
+        """Setter for the tiemout in minutes"""
+        self._timeout = value
+
+    @property
+    def threshold(self) -> int:
+        """Getter for the threshold"""
+        return self._threshold
+
+    @threshold.setter
+    def threshold(self, value: int):
+        """Setter for the threshold"""
+        self._threshold = value
 
     @property
     def verbose(self) -> bool:
@@ -88,11 +113,11 @@ class ImapDownload:
             return self._mailconn
         if self.account is None:
             raise ValueError("No account set")
-        if self.verbose:
-            print(f"Connect to {self.server}", flush=True)
+        self._log(f"Connect to {self.server}")
         self._mailconn = imaplib.IMAP4_SSL(self.server.host, self.server.port)
-        if self.verbose:
-            print(f"Login with {self.account}", flush=True)
+        sock = self._mailconn.socket()
+        sock.settimeout(60 * self._timeout)
+        self._log(f"Login with {self.account}")
         self._mailconn.login(self.account.name, self.account.password)
         return self._mailconn
 
@@ -103,8 +128,7 @@ class ImapDownload:
         try:
             self._mailconn.logout()
         except imaplib.IMAP4.error as err:
-            if self.verbose:
-                print(f"ErrorType : {type(err).__name__}, Error : {err}")
+            self._log(f"ErrorType : {type(err).__name__}, Error : {err}")
         self._mailconn = None
 
     def _parse_folder(self, data: str):
@@ -113,10 +137,10 @@ class ImapDownload:
         (\\Drafts) "/" MyDrafts
         (\\HasNoChildren) "/" "AirFrance"
         (\\HasNoChildren \\UnMarked \\Junk) "/" Junk
+        (\\HasNoChildren) "/" "ACM Queue"
         """
-        if self.verbose:
-            print(f"Parse folder [{data}]", flush=True)
-        folder_list_re = re.compile(r"\((.+)\) (.+) (.*)")
+        # self._log(f"Parse folder [{data}]")
+        folder_list_re = re.compile(r"\((.+)\) ([^ ]+) (.*)")
         match = re.search(folder_list_re, data)
         if not match:
             return ("", "/", "")
@@ -130,8 +154,7 @@ class ImapDownload:
         """Test the flags for SPECIAL-USE.
         See https://datatracker.ietf.org/doc/html/rfc6154
         """
-        if self.verbose:
-            print(f"Test flags for {flags}", flush=True)
+        # self._log(f"Test flags for {flags}")
         ignore_flags = ["All", "Archive", "Drafts", "Flagged", "Junk", "Sent", "Trash"]
         for ignore in ignore_flags:
             if f"\\{ignore}" in flags:
@@ -204,8 +227,7 @@ class ImapDownload:
                     self.last_error,
                 )
         except imaplib.IMAP4.error as err:
-            if self.verbose:
-                print(f"ErrorType : {type(err).__name__}, Error : {err}")
+            self._log(f"ErrorType : {type(err).__name__}, Error : {err}")
             # imaplib.IMAP4.error: b'[AUTHENTICATIONFAILED] LOGIN Invalid credentials'
             if "[AUTHENTICATIONFAILED]" in str(err):
                 self.last_error = (
@@ -230,9 +252,9 @@ class ImapDownload:
         resp, data = self._mailconn.select(f'"{folder.name_in_mutf7}"', readonly=True)
         # self._mailconn.close()
         if resp != "OK":
-            if self.verbose:
-                print(f"Bad response {resp} when counting from {folder}")
-            return (0, f"Bad response {resp} when counting from {folder}")
+            err_msg = f"Bad response {resp} when counting from {folder}"
+            self._log(err_msg)
+            return (0, err_msg)
         mycount = int(data[0].decode())
         folder.count = mycount
         return (mycount, "")
@@ -257,11 +279,9 @@ class ImapDownload:
             # Get ALL message numbers
             resp, data = self._mailconn.search(None, "ALL")
             if resp != "OK":
-                if self.verbose:
-                    print(f"Bad response {resp} when retrieving mails from {folder}")
-                raise ValueError(
-                    f"Bad response {resp} when retrieving mails from {folder}"
-                )
+                err_msg = f"Bad response {resp} when retrieving mails from {folder}"
+                self._log(err_msg)
+                raise ValueError(err_msg)
             numbers = data[0].split()
             max_msgs = len(numbers)
             count_msgs = 0
@@ -316,8 +336,7 @@ class ImapDownload:
                     self.last_error,
                 )
         except imaplib.IMAP4.error as err:
-            if self.verbose:
-                print(f"ErrorType : {type(err).__name__}, Error : {err}")
+            self._log(f"ErrorType : {type(err).__name__}, Error : {err}")
             # imaplib.IMAP4.error: b'[AUTHENTICATIONFAILED] LOGIN Invalid credentials'
             if "[AUTHENTICATIONFAILED]" in str(err):
                 self.last_error = (
@@ -335,8 +354,87 @@ class ImapDownload:
                     self.last_error,
                 )
 
+    def _clean_mbox(self):
+        try:
+            os.remove(self.mboxfile)
+        except OSError:
+            pass
+
+    def _set_error(self, err_msg: str, num: int, total: int, progress_cb=None):
+        self.ret_code = False
+        self.last_error = err_msg
+        if progress_cb is not None:
+            progress_cb(
+                "error",
+                num,
+                total,
+                self.last_error,
+            )
+
+    def _reconnect(self, num: int, folder: ImapFolder = None, wait_seconds: int = 3):
+        """
+        Make a reconnection to the server every 'threshold' message
+        after waiting for the given delay.
+        """
+        if num % self._threshold != 0:
+            return
+        self._log(f"Reconnect preventif: {num} with {self.threshold}, wait {wait_seconds}")
+
+        self.logout()
+        # Wait to let the server rest
+        time.sleep(wait_seconds)
+        self.login()
+        if folder is not None:
+            self._mailconn.select(f'"{folder.name_in_mutf7}"', readonly=True)
+
+    def _log(self, msg):
+        if self.verbose:
+            print(
+                f"{datetime.datetime.now().isoformat(timespec='seconds')} - {msg}",
+                flush=True,
+            )
+
+    def _fetch_mail(self, folder: ImapFolder, num: int, count_msgs: int):
+        """Fetch one mail with reconnection if BYE or NO response"""
+        self._reconnect(count_msgs + 1, folder)
+        try:
+            rv, data = self._mailconn.fetch(str(num), "(RFC822)")
+        except imaplib.IMAP4.abort as err:
+            # imply the connection should be reset and the command retried
+            self._log(f"Reconnect from 'BYE': {num=}, {err=}")
+            self._reconnect(0, folder)
+            rv, data = self._mailconn.fetch(str(num), "(RFC822)")
+        except TimeoutError as err:
+            self._log(f"TimeoutError : {num=}, {err=}")
+            raise
+
+        if rv == "NO":
+            # NO [b'[UNAVAILABLE] FETCH Server error - Please try again later']
+            info_msg = data[0].decode()
+            self._log(f"Reconnect from 'NO': {num}\n{info_msg}")
+            self._reconnect(0, folder, wait_seconds=600)
+            rv, data = self._mailconn.fetch(str(num), "(RFC822)")
+        return rv, data
+
+    def _build_search_string(self, year_since: int = None, year_before: int = None):
+        if year_since is None:
+            if year_before is None:
+                return "ALL"
+            else:
+                return f'(SENTBEFORE "31-Dec-{year_before}")'
+        else:
+            if year_before is None:
+                return f'(SENTSINCE "01-Jan-{year_since}")'
+            else:
+                return f'(SENTSINCE "01-Jan-{year_since}" SENTBEFORE "31-Dec-{year_before}")'
+
     def get_mails_mbox(
-        self, mboxfile: str, folder: ImapFolder = ImapFolder("INBOX"), progress_cb=None
+        self,
+        mboxfile: str,
+        folder: ImapFolder = ImapFolder("INBOX"),
+        year_since: int = None,
+        year_before: int = None,
+        progress_cb=None,
     ):
         """Aggregate all the mails in the mbox"""
         self.last_error = None
@@ -346,10 +444,12 @@ class ImapDownload:
             self.login()
             self._mailconn.select(f'"{folder.name_in_mutf7}"', readonly=True)
             # Get ALL message numbers
-            resp, data = self._mailconn.search(None, "ALL")
+            # SENTSINCE 1-Jan-2003 SENTBEFORE 31-Dec-2004
+            # self._mailconn.search(None, '(SENTSINCE "01-Jan-2003" SENTBEFORE "31-Dec-2004")')
+            search = self._build_search_string(year_since, year_before)
+            resp, data = self._mailconn.search(None, search)
             if resp != "OK":
-                if self.verbose:
-                    print(f"Bad response {resp} when retrieving mails from {folder}")
+                self._log(f"Bad response {resp} when retrieving mails from {folder}")
                 raise ValueError(
                     f"Bad response {resp} when retrieving mails from {folder}"
                 )
@@ -359,25 +459,39 @@ class ImapDownload:
             if progress_cb is not None:
                 progress_cb("start", count_msgs, max_msgs, f"folder: {folder.name}")
 
-            try:
-                os.remove(self.mboxfile)
-            except OSError:
-                pass
+            self._clean_mbox()
             dest_mbox = mailbox.mbox(self.mboxfile, create=True)
             dest_mbox.lock()  # lock the mbox file
             try:
                 for num in numbers:
-                    rv, data = self._mailconn.fetch(num, "(RFC822)")
-                    if rv != "OK":
+                    # Fetch one mail with reconnection if BYE or NO response
+                    rv, data = self._fetch_mail(folder, int(num), count_msgs)
+                    if rv == "NO":
+                        # This record is unavailable skip it
+                        self._reconnect(0, folder, wait_seconds=2)
+                        self._log(f"Skipping record {int(num)}")
+                        dest_mbox.flush()
                         if progress_cb is not None:
                             progress_cb(
-                                "error",
-                                count_msgs + 1,
+                                "warning",
+                                count_msgs,
                                 max_msgs,
-                                f"folder: {folder.name}, current: {int(num)}",
+                                f"folder: {folder.name}, SKIP: {int(num)}",
                             )
-                        self.ret_code = False
-                        self.last_error = f"folder: {folder.name}, current: {int(num)}"
+                        continue
+
+                    if rv != "OK":
+                        info_msg = data[0].decode()
+                        err_msg = f"folder: {folder.name}, current: {int(num)}, return: {rv}\n{info_msg}"
+                        self._log(err_msg)
+                        self._log(info_msg)
+
+                        self._set_error(
+                            err_msg,
+                            count_msgs + 1,
+                            max_msgs,
+                            progress_cb,
+                        )
                         return
                     # Wrap in BytesIO to force binary decoding
                     bstream = io.BytesIO(data[0][1])
@@ -394,53 +508,33 @@ class ImapDownload:
                         )
             finally:
                 dest_mbox.close()  # close/unlock the mbox file
-                try:
-                    self._mailconn.close()
-                except imaplib.IMAP4.error:
-                    pass
+                if self._mailconn is not None:
+                    try:
+                        self._mailconn.close()
+                    except (imaplib.IMAP4.error, OSError):
+                        # raise OSError("cannot read from timed out object")
+                        pass
             if progress_cb is not None:
                 progress_cb("complete", count_msgs, max_msgs, f"folder: {folder.name}")
             self.ret_code = True
             self.last_error = ""
         except ValueError as err:
-            self.last_error = f"Erreur de récupération : {err}."
-            self.ret_code = False
-            if progress_cb is not None:
-                progress_cb(
-                    "error",
-                    0,
-                    0,
-                    self.last_error,
-                )
+            self._set_error(f"Erreur de récupération : {err}.", 0, 0, progress_cb)
+        except TimeoutError as err:
+            self._set_error(f"Delai de connexion dépassé : {err}.", 0, 0, progress_cb)
         except socket.gaierror as err:
-            self.last_error = f"Erreur de connexion : {err}."
-            self.ret_code = False
-            if progress_cb is not None:
-                progress_cb(
-                    "error",
-                    0,
-                    0,
-                    self.last_error,
-                )
+            self._set_error(f"Erreur de connexion : {err}.", 0, 0, progress_cb)
         except imaplib.IMAP4.error as err:
-            if self.verbose:
-                print(f"ErrorType : {type(err).__name__}, Error : {err}")
+            self._log(f"ErrorType : {type(err).__name__}, Error : {err}")
             # imaplib.IMAP4.error: b'[AUTHENTICATIONFAILED] LOGIN Invalid credentials'
             if "[AUTHENTICATIONFAILED]" in str(err):
-                self.last_error = (
+                err_msg = (
                     "Erreur de connectison: vérifiez le login et le mot de passe.\n\n"
                     f"{err}."
                 )
             else:
-                self.last_error = f"Erreur de récupération : {err}."
-            self.ret_code = False
-            if progress_cb is not None:
-                progress_cb(
-                    "error",
-                    0,
-                    0,
-                    self.last_error,
-                )
+                err_msg = f"Erreur de récupération : {err}."
+            self._set_error(err_msg, 0, 0, progress_cb)
 
 
 def calculate_mbox_dest(outdir: str, folder: ImapFolder = ImapFolder("INBOX")):

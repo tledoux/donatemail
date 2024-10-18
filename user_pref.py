@@ -35,7 +35,12 @@ class UserPreferences:
 
     def get(self, pref: str) -> str:
         """Get a specific user preference"""
-        return self.user_pref.get(pref, None)
+        default = None
+        if pref == "TimeOut":
+            default = "5"
+        elif pref == "MessagesThreshold":
+            default = "2000"
+        return self.user_pref.get(pref, default)
 
     def set(self, pref: str, value: str) -> None:
         """Set a specific user preference"""

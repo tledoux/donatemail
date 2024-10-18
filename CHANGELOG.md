@@ -13,6 +13,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [1.5.0] - 2024-10-15
+
+### Added
+
+- Ajout de la gestion du délai de connexion (timeout)
+- Ajout d'un timer pour les opérations longues
+- Ajout d'un seuil de messages pour forcer la reconnexion, pour éviter le 'BYE'
+- Gestion du BYE (abort) lors du fetch des mails
+- Gestion du NO lors du fetch des mails
+- Omission des messages après 2 NO consécutifs
+- Ajout des zones de saisie pour le délai de connexion et le seuil de messages
+
+### Changed
+
+- Correction pour les noms de dossiers avec un espace
+
+### Removed
+
+
 ## [1.4.0] - 2024-08-14
 
 ### Added
@@ -105,7 +124,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-[Unreleased]: https://github.com/tledoux/donatemail/compare/v1.4.0..HEAD
+[Unreleased]: https://github.com/tledoux/donatemail/compare/v1.5.0..HEAD
+[1.5.0]: https://github.com/tledoux/donatemail/compare/v1.4.0..v1.5.0
 [1.4.0]: https://github.com/tledoux/donatemail/compare/v1.3.1..v1.4.0
 [1.3.1]: https://github.com/tledoux/donatemail/compare/v1.3.0..v1.3.1
 [1.3.0]: https://github.com/tledoux/donatemail/compare/v1.2.9..v1.3.0

@@ -18,7 +18,7 @@ Ce programme n'a été testé que sous Windows.
 
 ## LIMITATIONS
 
-:warning: Ce programe ne fonctionne que dans ces conditions :
+:warning: Ce programme ne fonctionne que dans ces conditions :
   * le port 993 doit être ouvert sur votre réseau pour permettre l'usage du protocole [IMAP SSL](https://fr.wikipedia.org/wiki/Internet_Message_Access_Protocol),
   * il faut généralement créer et utiliser un mot de passe **applicatif** à votre messagerie pour permettre son accès depuis une application tierce comme celle-ci.
 
@@ -40,4 +40,6 @@ Pour construire l'exécutable, installer le module pyinstaller, puis lancer :
 pyinstaller donatemail.spec
 ```
 
-Cela génère un exécutable `donatemail.exe` dans le répertoire `dist`
+Cela génère un exécutable `donatemail.exe` dans le répertoire `dist`.
+
+:warning: Les exécutables ainsi générés peuvent être considérés comme dangeureux par votre antivirus ou même votre système d'exploitation. Pour les lancer, il convient de rassurer ces éléments de protection et de déclarer explicitement les exécutables comme sûrs. 

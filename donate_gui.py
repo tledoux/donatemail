@@ -33,7 +33,7 @@ from imap_download import ImapDownload, calculate_mbox_dest
 from mbox_delivery import MboxDelivery
 from user_pref import UserPreferences
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __appname__ = "donatemail"
 
 logger = logging.getLogger(__appname__)
@@ -57,10 +57,13 @@ class DonateGui(tk.Frame):
         self.pop_info_passwd = None
         self.icon = None
         self.font_families = {}
+        current_year = datetime.datetime.today().year
+        self.year_list = range(2000, current_year)
         # Variables to cope with background work
         self.progress_var = tk.IntVar()
         self.working_thread = None
         self.working_operation = None
+        self.starttime = 0
 
         self.prefs = UserPreferences(__appname__)
         self.work_dir = self.prefs.get("WorkDir")
@@ -71,11 +74,15 @@ class DonateGui(tk.Frame):
         if self.delivery_dir is None:
             self.delivery_dir = "tmp"
             self.prefs.set("DeliveryDir", self.delivery_dir)
+        self.timeout = int(self.prefs.get("TimeOut"))
+        self.threshold = int(self.prefs.get("MessagesThreshold"))
         # Other variables to init...
         self.known_servers = imap_server.ImapServers()
         self.known_servers.read_from_json(resource_path("./assets/servers.json"))
         self.servers = self.known_servers.get_servers()
         # Variables to follow the GUI
+        self.selected_timeout = str(self.timeout)
+        self.selected_threshold = str(self.threshold)
         self.selected_server = None
         self.server = None
         self.account = None
@@ -148,6 +155,8 @@ class DonateGui(tk.Frame):
         self.disable_gui_on_work()
 
         self.working_operation = ImapDownload(self.server)
+        self.working_operation.timeout = int(self.selected_timeout.get())
+        self.working_operation.threshold = int(self.selected_threshold.get())
         self.working_operation.verbose = self._verbose
         self.working_operation.account = self.account
         self.root.config(cursor="watch")
@@ -164,7 +173,7 @@ class DonateGui(tk.Frame):
         """Manage the progress of the loading folder thread"""
         if status == "start":
             self.progress_raz()
-        elif status == "running":
+        elif status == "running" or status == "warning":
             self.progress(status, number, total, msg)
         elif status == "error":
             self.enable_gui_after_work([self.folders_btn])
@@ -180,6 +189,7 @@ class DonateGui(tk.Frame):
             self.working_operation.logout()
             self.working_operation = None
             self.root.config(cursor="")
+            elapsed_seconds = round(time.time() - self.starttime, 2)
             folders_count = len(self.folders)
             self.refresh_folders_list()
             self.progress_raz()
@@ -190,7 +200,7 @@ class DonateGui(tk.Frame):
                 )
             else:
                 msg = (
-                    f"{folders_count} dossiers ont été trouvés.\n"
+                    f"{folders_count} dossiers ont été trouvés en {self._seconds_in_str(elapsed_seconds)}.\n"
                     "Sélectionnez-en un puis récupérez les courriels."
                 )
             tkMessageBox.showinfo("Succès", msg)
@@ -204,6 +214,8 @@ class DonateGui(tk.Frame):
         self.disable_gui_on_work()
 
         self.working_operation = ImapDownload(self.server)
+        self.working_operation.timeout = int(self.selected_timeout.get())
+        self.working_operation.threshold = int(self.selected_threshold.get())
         self.working_operation.verbose = self._verbose
         self.working_operation.account = self.account
         self.root.config(cursor="watch")
@@ -217,10 +229,15 @@ class DonateGui(tk.Frame):
             pass
         self.working_thread = threading.Thread(
             target=self.working_operation.get_mails_mbox,
-            args=(temp_mbox, folder, self.progress_retrieve),
+            args=(temp_mbox, folder, None, None, self.progress_retrieve),
             daemon=True,
         )
         self.working_thread.start()
+
+    def _seconds_in_str(self, s: float):
+        hours, remainder = divmod(s, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        return f"{int(hours):02d}:{int(minutes):02d}:{seconds:05.2f}"
 
     def progress_retrieve(
         self, status: str, number: int, total: int, msg: str = ""
@@ -228,7 +245,7 @@ class DonateGui(tk.Frame):
         """Manage the progress of the retrieving thread"""
         if status == "start":
             self.progress_raz()
-        elif status == "running":
+        elif status == "running" or status == "warning":
             self.progress(status, number, total, msg)
         elif status == "error":
             self.enable_gui_after_work([self.folders_btn, self.retrieve_btn])
@@ -240,6 +257,7 @@ class DonateGui(tk.Frame):
             tkMessageBox.showerror("Erreur", msg)
         elif status == "complete":
             mails_count = number
+            elapsed_seconds = round(time.time() - self.starttime, 2)
             self.working_operation.logout()
             self.working_operation = None
             self.root.config(cursor="")
@@ -261,7 +279,7 @@ class DonateGui(tk.Frame):
                     )
                 else:
                     msg = (
-                        f"{mails_count} courriels ont été récupérés.\n"
+                        f"{mails_count} courriels ont été récupérés en {self._seconds_in_str(elapsed_seconds)}.\n"
                         "Vous pouvez créer la livraison."
                     )
                 tkMessageBox.showinfo("Succès", msg)
@@ -304,7 +322,7 @@ class DonateGui(tk.Frame):
         """Manage the progress of the delivery thread"""
         if status == "start":
             self.progress_raz()
-        elif status == "running":
+        elif status == "running" or status == "warning":
             self.progress(status, number, total, msg)
         elif status == "error":
             self.enable_gui_after_work(
@@ -324,6 +342,7 @@ class DonateGui(tk.Frame):
                 )
             tkMessageBox.showerror("Erreur", msg)
         elif status == "complete":
+            elapsed_seconds = round(time.time() - self.starttime, 2)
             self.enable_gui_after_work(
                 [self.folders_btn, self.retrieve_btn, self.delivery_btn]
             )
@@ -338,7 +357,7 @@ class DonateGui(tk.Frame):
             normalized_temp_zip = os.path.normpath(temp_zip)
             self.root.clipboard_clear()
             self.root.clipboard_append(normalized_temp_zip)
-            msg = f"Livraison prête sur : [{normalized_temp_zip}]."
+            msg = f"Livraison prête en {self._seconds_in_str(elapsed_seconds)} sur : [{normalized_temp_zip}]."
             tkMessageBox.showinfo("Information", msg)
 
     def on_click_folders_listbox(self, _event=None):
@@ -373,6 +392,8 @@ class DonateGui(tk.Frame):
         self.prefs.set("DeliveryDir", self.delivery_dir)
         self.prefs.set("LastServer", self.selected_server.get())
         self.prefs.set("LastLogin", self.login_entry.get().strip())
+        self.prefs.set("TimeOut", str(self.selected_timeout.get()))
+        self.prefs.set("MessagesThreshold", str(self.selected_threshold.get()))
         self.prefs.save_prefs()
 
         # Wait 1 second to avoid race condition
@@ -463,6 +484,7 @@ class DonateGui(tk.Frame):
 
     def progress_raz(self, msg: str = "") -> None:
         """RAZ the progress bar"""
+        self.starttime = time.time()
         self.progress_var.set(0)
         self.infolbl.config(text=msg)
         self.root.update()
@@ -613,6 +635,17 @@ class DonateGui(tk.Frame):
             20,
             action=self.on_show_hide,
         )
+
+        self.selected_timeout = tk.StringVar()
+        self.timeout_combo = create_combo(
+            self,
+            "Délai de connexion (min) :",
+            self.selected_timeout,
+            ["1", "2", "5", "10", "30"],
+            3,
+            row,
+        )
+        self.selected_timeout.set(self.timeout)
         row += 1
 
         self.folder_label = tk.Label(
@@ -621,6 +654,17 @@ class DonateGui(tk.Frame):
             font=(self.font_families["variable"], self.font_families["size"] + 2),
         )
         self.folder_label.grid(column=0, row=row, sticky="w")
+
+        self.selected_threshold = tk.StringVar()
+        self.threshold_combo = create_combo(
+            self,
+            "Seuil de reconnexion :",
+            self.selected_threshold,
+            ["100", "200", "500", "1000", "2000"],
+            3,
+            row,
+        )
+        self.selected_threshold.set(self.threshold)
         row += 1
 
         self.folders_listbox = tk.Listbox(
