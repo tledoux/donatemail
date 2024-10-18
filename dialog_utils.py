@@ -19,7 +19,7 @@ def prepare_fonts(root, verbose=False):
     if verbose:
         print(f"TkDefaultFont={defaultfont.actual()}")
         print(f"TkFixedtFont={fixedfont.actual()}")
-        print(f"screen_width={screen_width}")
+        print(f"{screen_width=}, screen_height={_screen_height}")
     if 1024 < screen_width <= 1440:
         default_size = 10
     elif 1440 < screen_width <= 1920:
