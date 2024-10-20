@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-## [1.5.0] - 2024-10-15
+## [1.5.0] - 2024-10-20
 
 ### Added
 
@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Gestion du NO lors du fetch des mails
 - Omission des messages après 2 NO consécutifs
 - Ajout des zones de saisie pour le délai de connexion et le seuil de messages
+- Génération d'un fichier json pour documenter la récupération
+- Ajout du fichier json dans la livraison comme de la métadonnée
 
 ### Changed
 

@@ -20,7 +20,8 @@ Ce programme n'a été testé que sous Windows.
 
 :warning: Ce programme ne fonctionne que dans ces conditions :
   * le port 993 doit être ouvert sur votre réseau pour permettre l'usage du protocole [IMAP SSL](https://fr.wikipedia.org/wiki/Internet_Message_Access_Protocol),
-  * il faut généralement créer et utiliser un mot de passe **applicatif** à votre messagerie pour permettre son accès depuis une application tierce comme celle-ci.
+  * il faut généralement créer et utiliser un mot de passe **applicatif** à votre messagerie pour permettre son accès depuis une application tierce comme celle-ci,
+  * les dossiers sont généralement limités aux 10000 premiers messages (ceci est une limitation des serveurs de WebMail). Du coup, il faut découper les dossiers pour les limiter à 10000 messages au plus.
 
 
 
