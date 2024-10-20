@@ -36,15 +36,15 @@ class ImapServer:
         """Transform the object in a dictionnary"""
         return {"name": self.name, "host": self.host, "port": self.port}
 
-
-def as_imap_server(dct):
-    """Custom deserialization of json to create ImapServer objects"""
-    if "name" in dct and "host" in dct:
-        if "port" in dct:
-            return ImapServer(dct["name"], dct["host"], int(dct["port"]))
-        else:
-            return ImapServer(dct["name"], dct["host"])
-    return dct
+    @classmethod
+    def from_dict(cls, dct):
+        """Custom deserialization of json to create ImapServer instance"""
+        if "name" in dct and "host" in dct:
+            if "port" in dct:
+                return ImapServer(dct["name"], dct["host"], int(dct["port"]))
+            else:
+                return ImapServer(dct["name"], dct["host"])
+        return dct
 
 
 class ImapServers:
@@ -56,7 +56,7 @@ class ImapServers:
     def read_from_json(self, json_file: str):
         """Read the definition of the IMAP servers from the asset file"""
         with open(json_file, "r", encoding="utf-8") as json_fd:
-            self._servers = json.load(json_fd, object_hook=as_imap_server)
+            self._servers = json.load(json_fd, object_hook=ImapServer.from_dict)
 
     def add_server(self, server: ImapServer):
         """Add a server to the known servers"""

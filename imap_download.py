@@ -20,6 +20,8 @@ import socket
 import time
 
 from dialog_utils import resource_path
+from download_context import DownloadContext
+from download_result import DownloadResult
 from imap_server import ImapServers, ImapServer
 from imap_account import ImapAccount, DEFAULT_ACCOUNT
 from imap_folder import ImapFolder
@@ -28,14 +30,14 @@ from imap_folder import ImapFolder
 class ImapDownload:
     """This class allows a download of mails"""
 
-    def __init__(self, server: ImapServer, verbose: bool = False):
-        self._server = server
-        self._account = None
+    def __init__(self, server: ImapServer, account: ImapAccount, verbose: bool = False):
+        self._context = DownloadContext()
+        self._context.add_context(server, account)
+        self._result = DownloadResult()
+        self._result.context = self._context
+
         self.folders = []
-        self._timeout = 10
-        self._threshold = 2000
         self._verbose = verbose
-        self._mboxfile = None
 
         self._mailconn = None
 
@@ -43,44 +45,49 @@ class ImapDownload:
         self.ret_code = True
 
     @property
-    def server(self) -> ImapServer:
-        """Getter for the server"""
-        return self._server
+    def context(self) -> DownloadContext:
+        """Getter for the context of the download"""
+        return self._context
 
     @property
-    def account(self) -> ImapAccount:
-        """Getter for the account"""
-        return self._account
+    def result(self) -> DownloadResult:
+        """Getter for the result of the download"""
+        return self._result
 
-    @account.setter
-    def account(self, value: ImapAccount):
-        """Setter for the account"""
-        self._account = value
+    @property
+    def folder(self) -> ImapFolder:
+        """Getter for the folder"""
+        return self.context.folder
 
-    @account.deleter
-    def account(self):
-        """Deleter for the account"""
-        del self._account
+    @folder.setter
+    def folder(self, value: ImapFolder):
+        """Setter for the folder"""
+        self.context.folder = value
+
+    @folder.deleter
+    def folder(self):
+        """Deleter for the folder"""
+        del self.context.folder
 
     @property
     def timeout(self) -> int:
         """Getter for the timeout in minutes"""
-        return self._timeout
+        return self.context.timeout
 
     @timeout.setter
     def timeout(self, value: int):
         """Setter for the tiemout in minutes"""
-        self._timeout = value
+        self.context.timeout = value
 
     @property
     def threshold(self) -> int:
         """Getter for the threshold"""
-        return self._threshold
+        return self.context.threshold
 
     @threshold.setter
     def threshold(self, value: int):
         """Setter for the threshold"""
-        self._threshold = value
+        self.context.threshold = value
 
     @property
     def verbose(self) -> bool:
@@ -95,30 +102,32 @@ class ImapDownload:
     @property
     def mboxfile(self) -> str:
         """Getter for the mboxfile"""
-        return self._mboxfile
+        return self.context.mbox
 
     @mboxfile.setter
     def mboxfile(self, value: str):
         """Setter for the mboxfile"""
-        self._mboxfile = value
+        self.context.mbox = value
 
     @mboxfile.deleter
     def mboxfile(self):
         """Deleter for the mboxfile"""
-        del self._mboxfile
+        del self.context.mbox
 
     def login(self):
         """Log into the mailbox"""
         if self._mailconn is not None:
             return self._mailconn
-        if self.account is None:
+        if self.context.account is None:
             raise ValueError("No account set")
-        self._log(f"Connect to {self.server}")
-        self._mailconn = imaplib.IMAP4_SSL(self.server.host, self.server.port)
+        self._log(f"Connect to {self.context.server}")
+        self._mailconn = imaplib.IMAP4_SSL(
+            self.context.server.host, self.context.server.port
+        )
         sock = self._mailconn.socket()
-        sock.settimeout(60 * self._timeout)
-        self._log(f"Login with {self.account}")
-        self._mailconn.login(self.account.name, self.account.password)
+        sock.settimeout(60 * self.timeout)
+        self._log(f"Login with {self.context.account}")
+        self._mailconn.login(self.context.account.name, self.context.account.password)
         return self._mailconn
 
     def logout(self):
@@ -178,14 +187,14 @@ class ImapDownload:
             max_folders = len(data)
             if progress_cb is not None:
                 progress_cb("start", 0, max_folders)
-            for mbox in data:
-                flags, _, name = self._parse_folder(bytes.decode(mbox))
+            for line in data:
+                flags, _, name = self._parse_folder(bytes.decode(line))
                 if self._test_flags(flags):
                     continue
                 folder = ImapFolder(name)
                 if with_counts:
                     mycount, _msg = self.get_folder_count(folder)
-                    if mycount == 0:
+                    if mycount == 0:  # skip empty folders
                         continue
                     msgs_count = msgs_count + mycount
                 self.folders.append(folder)
@@ -376,9 +385,11 @@ class ImapDownload:
         Make a reconnection to the server every 'threshold' message
         after waiting for the given delay.
         """
-        if num % self._threshold != 0:
+        if num % self.threshold != 0:
             return
-        self._log(f"Reconnect preventif: {num} with {self.threshold}, wait {wait_seconds}")
+        self._log(
+            f"Reconnect preventif: {num} with {self.threshold}, wait {wait_seconds}"
+        )
 
         self.logout()
         # Wait to let the server rest
@@ -388,11 +399,10 @@ class ImapDownload:
             self._mailconn.select(f'"{folder.name_in_mutf7}"', readonly=True)
 
     def _log(self, msg):
+        info_msg = f"{datetime.datetime.now().isoformat(timespec='seconds')} - {msg}"
+        self.result.add_log(info_msg)
         if self.verbose:
-            print(
-                f"{datetime.datetime.now().isoformat(timespec='seconds')} - {msg}",
-                flush=True,
-            )
+            print(info_msg, flush=True)
 
     def _fetch_mail(self, folder: ImapFolder, num: int, count_msgs: int):
         """Fetch one mail with reconnection if BYE or NO response"""
@@ -439,6 +449,10 @@ class ImapDownload:
         """Aggregate all the mails in the mbox"""
         self.last_error = None
         self.ret_code = True
+        self.result.start()
+        self.context.folder = folder
+        self.context.add_years(year_since, year_before)
+        self.context.mbox = mboxfile
         try:
             self.mboxfile = mboxfile
             self.login()
@@ -470,6 +484,7 @@ class ImapDownload:
                         # This record is unavailable skip it
                         self._reconnect(0, folder, wait_seconds=2)
                         self._log(f"Skipping record {int(num)}")
+                        self.result.add_skip_mail(int(num))
                         dest_mbox.flush()
                         if progress_cb is not None:
                             progress_cb(
@@ -514,6 +529,7 @@ class ImapDownload:
                     except (imaplib.IMAP4.error, OSError):
                         # raise OSError("cannot read from timed out object")
                         pass
+            self.result.end(count_msgs, max_msgs)
             if progress_cb is not None:
                 progress_cb("complete", count_msgs, max_msgs, f"folder: {folder.name}")
             self.ret_code = True
@@ -537,7 +553,7 @@ class ImapDownload:
             self._set_error(err_msg, 0, 0, progress_cb)
 
 
-def calculate_mbox_dest(outdir: str, folder: ImapFolder = ImapFolder("INBOX")):
+def calculate_mbox_dest(outdir: str, folder: ImapFolder = ImapFolder("INBOX")) -> str:
     """Calculate the path of the mbox file and create the needed directories"""
     # Use modified UTF-7 to avoid interoperability issues in filenames
     name_mbox = f"{folder.name_in_mutf7}.mbox"
@@ -548,6 +564,19 @@ def calculate_mbox_dest(outdir: str, folder: ImapFolder = ImapFolder("INBOX")):
     except OSError:
         pass
     return path_mbox
+
+
+def calculate_json_dest(outdir: str, folder: ImapFolder = ImapFolder("INBOX")) -> str:
+    """Calculate the path of the json file and create the needed directories"""
+    # Use modified UTF-7 to avoid interoperability issues in filenames
+    name_json = f"{folder.name_in_mutf7}.json"
+    path_json = os.path.join(outdir, name_json)
+    dir_json = os.path.dirname(path_json)
+    try:
+        os.makedirs(dir_json, exist_ok=True)
+    except OSError:
+        pass
+    return path_json
 
 
 def remove_eml_files(directory: str):

@@ -33,5 +33,12 @@ class ImapAccount:
         """Transform the object in a dictionnary"""
         return {"name": self.name}
 
+    @classmethod
+    def from_dict(cls, dct):
+        """Custom deserialization of json to create ImapAccount instance"""
+        if "name" in dct:
+            return ImapAccount(dct["name"], "")
+        return dct
+
 
 DEFAULT_ACCOUNT = ImapAccount("test@example.org", "")

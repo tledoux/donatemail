@@ -66,3 +66,13 @@ class ImapFolder:
             return {"name": self.name, "count": self.count}
         else:
             return {"name": self.name}
+
+    @classmethod
+    def from_dict(cls, dct):
+        """Custom deserialization of json to create ImapFolder instance"""
+        if "name" in dct:
+            if "count" in dct:
+                return ImapFolder(dct["name"], int(dct["count"]))
+            else:
+                return ImapFolder(dct["name"])
+        return dct

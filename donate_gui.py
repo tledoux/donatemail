@@ -29,7 +29,7 @@ from dialog_utils import (
 )
 import imap_server
 from imap_account import ImapAccount
-from imap_download import ImapDownload, calculate_mbox_dest
+from imap_download import ImapDownload, calculate_json_dest, calculate_mbox_dest
 from mbox_delivery import MboxDelivery
 from user_pref import UserPreferences
 
@@ -154,11 +154,9 @@ class DonateGui(tk.Frame):
             return
         self.disable_gui_on_work()
 
-        self.working_operation = ImapDownload(self.server)
+        self.working_operation = ImapDownload(self.server, self.account, self._verbose)
         self.working_operation.timeout = int(self.selected_timeout.get())
         self.working_operation.threshold = int(self.selected_threshold.get())
-        self.working_operation.verbose = self._verbose
-        self.working_operation.account = self.account
         self.root.config(cursor="watch")
         self.working_thread = threading.Thread(
             target=self.working_operation.list_folders,
@@ -213,13 +211,14 @@ class DonateGui(tk.Frame):
             return
         self.disable_gui_on_work()
 
-        self.working_operation = ImapDownload(self.server)
+        self.working_operation = ImapDownload(self.server, self.account, self._verbose)
+        self.working_operation.context.agent = (
+            f"{__appname__.capitalize()} {__version__}"
+        )
         self.working_operation.timeout = int(self.selected_timeout.get())
         self.working_operation.threshold = int(self.selected_threshold.get())
-        self.working_operation.verbose = self._verbose
-        self.working_operation.account = self.account
-        self.root.config(cursor="watch")
 
+        self.root.config(cursor="watch")
         folder = self.selected_folder
         temp_mbox = calculate_mbox_dest(self.work_dir, folder)
         # Empty the mbox in case of existing one
@@ -258,6 +257,12 @@ class DonateGui(tk.Frame):
         elif status == "complete":
             mails_count = number
             elapsed_seconds = round(time.time() - self.starttime, 2)
+            json_str = self.working_operation.result.generate_manifest()
+            download_jsonfile = calculate_json_dest(
+                self.work_dir, self.working_operation.result.context.folder
+            )
+            with open(download_jsonfile, "w", encoding="utf-8") as json_fd:
+                print(json_str, file=json_fd)
             self.working_operation.logout()
             self.working_operation = None
             self.root.config(cursor="")
@@ -296,6 +301,14 @@ class DonateGui(tk.Frame):
             msg = f"Le dossier {self.selected_folder.name} n'a pas encore été récupéré !!!"
             tkMessageBox.showerror("Erreur", msg)
             return
+        download_jsonfile = calculate_json_dest(self.work_dir, folder)
+        if not os.path.exists(download_jsonfile):
+            msg = (
+                f"Le dossier {self.selected_folder.name} n'a pas été correctement récupéré !!!\n"
+                "Merci de refaire l'opération de récupération."
+            )
+            tkMessageBox.showerror("Erreur", msg)
+            return
 
         self.root.config(cursor="watch")
         suffix = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
@@ -304,11 +317,7 @@ class DonateGui(tk.Frame):
         except OSError:
             pass
         temp_zip = os.path.join(self.delivery_dir, f"livraison_{suffix}.zip")
-        self.working_operation = MboxDelivery(temp_zip, temp_mbox)
-        self.working_operation.add_context(
-            self.server, self.account, self.selected_folder
-        )
-        self.working_operation.add_agent(f"{__appname__.capitalize()} {__version__}")
+        self.working_operation = MboxDelivery(temp_zip, temp_mbox, download_jsonfile)
         self.working_thread = threading.Thread(
             target=self.working_operation.transform,
             kwargs={"progress_cb": self.progress_delivery},

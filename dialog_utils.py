@@ -30,8 +30,8 @@ def prepare_fonts(root, verbose=False):
         print(f"default_size={default_size}")
 
     families = tkFont.families()
-    if verbose:
-        print(f"Available font families={sorted(families)}")
+    # if verbose:
+    #    print(f"Available font families={sorted(families)}")
     if "DejaVu Sans" in families:
         family_variable = "DejaVu Sans"
         family_mono = "DejaVu Sans Mono"
